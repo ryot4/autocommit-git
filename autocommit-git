@@ -1,0 +1,83 @@
+#!/bin/sh
+#
+# Copyright (c) 2021 ryot4
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+set -e
+
+usage()
+{
+    echo "$0 [-a author] [-m message] [-p remote] directory"
+}
+
+fail()
+{
+    echo "$@" 1>&2
+    exit 1
+}
+
+author=''
+message='Automatic commit by autocommit-git'
+push_remote=''
+while getopts a:hm:p: option; do
+    case "${option}" in
+    a)
+        author="${OPTARG}"
+        ;;
+    h)
+        usage
+        exit
+        ;;
+    m)
+        message="${OPTARG}"
+        ;;
+    p)
+        push_remote="${OPTARG}"
+        ;;
+    esac
+done
+shift $((OPTIND - 1))
+
+if [ -z "$1" ]; then
+    usage
+    fail 'No directory specified'
+elif [ ! -d "$1" ]; then
+    fail "$1 is not a directory"
+fi
+
+if ! type git > /dev/null 2>&1; then
+    fail 'git is not available'
+fi
+
+cd "$1"
+if ! git rev-parse --git-dir > /dev/null 2>&1; then
+    fail "$1 is not under version control with Git"
+fi
+
+if [ -z "$(git status --porcelain)" ]; then
+    exit
+fi
+
+git add -A
+git commit ${author:+--author="${author}"} -m "${message}"
+
+if [ -n "${push_remote}" ]; then
+    git push "${push_remote}" "$(git rev-parse --abbrev-ref HEAD)"
+fi
